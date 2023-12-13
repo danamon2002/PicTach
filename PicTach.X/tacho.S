@@ -101,12 +101,14 @@ main:
     //Initialize address for tracking input state changes per period
     li	    t0, 0		    
     sw	    t0, 0x80000000
+    li	    t0, 0
+    sw	    t0, 0x80000004
   
     // Main loop for outside of interrupts
 mainloop:
     
     //fast check
-    lw	    t9, 0x80000000	## Load counter value
+    lw	    t9, 0x80000004	## Load counter value
     move    t8, t9
     slti    t7, t8, 50			## 1 if t1 < 50 (50 * 2 * 60 = 6K RPM)
     bnez    t7, medspeed		## skip if < 50 clicks
@@ -140,12 +142,12 @@ mainloop:
     
     donechecking:
     
-    li t5, 0x00060000		   ##loop counter value
+    li t6, 0x00060000		   ##loop counter value
     //delay loop
     delay:
-    beqz t5, contmainloop
+    beqz t6, contmainloop
     nop
-    addi t5, t5, -1
+    addi t6, t6, -1
     j delay
     
     contmainloop:
@@ -172,14 +174,12 @@ isrvector11:			    ## TIMER INTERRUPT
     sw	    t2, IFS0CLR		    ## Clear T1IF in software!
        
 endvec11:
-    
-    //	Reset counter
+ 
+    //	Reset counter & store last value to new address
+    lw	    t2, 0x80000000
+    sw	    t2, 0x80000004 ## MAY BREAK PROGRAM
     li	    t0, 0
     sw	    t0, 0x80000000
-    
-    //reset tach LED code once went here
-    ///li	    t6, _PORTA_RA2_MASK		##set blue LED
-    //sw	    t6, LATAINV
     
     eret		    ## Return from interrupt
     .end isrvector11
@@ -191,19 +191,19 @@ endvec11:
     .ent isrvector9
 isrvector9:			    ##BUTTON INTERRUPT  
     //clear flag
-    li	    t0, _IFS0_CNBIF_MASK    ## Clear Port B change notification flag
-    sw	    t0, IFS0CLR		    ##    in IFS0
-    li	    t0, _PORTB_RB7_MASK	    ## t4 = 0x00000080 --> mask for S1
-    sw	    t0, CNFBCLR		    ## Clear flag input state change
+    li	    t3, _IFS0_CNBIF_MASK    ## Clear Port B change notification flag
+    sw	    t3, IFS0CLR		    ##    in IFS0
+    li	    t3, _PORTB_RB7_MASK	    ## t4 = 0x00000080 --> mask for S1
+    sw	    t3, CNFBCLR		    ## Clear flag input state change
 
     //debug code to show input change
-    li	    t0, _PORTA_RA0_MASK	    ## Toggle input indicator LED
-    sw	    t0, LATAINV 
+    li	    t3, _PORTA_RA0_MASK	    ## Toggle input indicator LED
+    sw	    t3, LATAINV 
     
     //code to up tick counter
-    lw	    t1, 0x80000000		    ## load counter value
-    addi    t1, 1		    ## add 1 to it
-    sw	    t1, 0x80000000		    ## save it back to s0
+    lw	    t3, 0x80000000		    ## load counter value
+    addi    t3, 1		    ## add 1 to it
+    sw	    t3, 0x80000000		    ## save it back to s0
     
     
     eret		    ## Return from interrupt
