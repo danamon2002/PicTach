@@ -63,7 +63,7 @@ main:
     li	    t2, _IFS0_T1IF_MASK	    ## t2 = bit mask for checking Timer 1 interrupt flag
     
     ## Prescale clock
-    li	    t3, _T1CON_TCKPS1_MASK  ## Prescale by factor of 64 (TCKPS = 10) BITMASK = 0x00000020
+    li	    t3, _T1CON_TCKPS_MASK  ## Prescale by factor of 64 (TCKPS = 10) BITMASK = 0x00000020
     sw	    t3, T1CONSET
     
     // Configure interrupts
@@ -108,9 +108,8 @@ main:
 mainloop:
     
     //fast check
-    lw	    t9, 0x80000004	## Load counter value
-    move    t8, t9
-    slti    t7, t8, 50			## 1 if t1 < 50 (50 * 2 * 60 = 6K RPM)
+    lw	    t8, 0x80000004	## Load counter value
+    slti    t7, t8, 98			## 1 if t1 < 50 (100 * 60 = ~6K RPM)
     bnez    t7, medspeed		## skip if < 50 clicks
     nop
     //set LED (RED)
@@ -120,9 +119,9 @@ mainloop:
     nop
     //medium speed check
     medspeed:
-    move    t8, t9
-    slti    t7, t8, 25			## 1 if t1 < 25 (3K RPM)
-    bnez    t7, mainloopend		## skip if < 25 clicks
+    lw	    t8, 0x80000004
+    slti    t7, t8, 65			## 1 if t1 < 65 (~4K RPM)
+    bnez    t7, lowspeed		## skip if < 65 clicks
     nop
     //set LED (YELLOW)
     li	    t1, _PORTB_RB12_MASK	##green
@@ -132,9 +131,9 @@ mainloop:
     j donechecking
     nop
     lowspeed:
-    move    t8, t9
-    slti    t7, t8, 4			## 1 if t1 < 4 (480 RPM)
-    bnez    t7, mainloopend		## skip if < 4 clicks
+    lw	    t8, 0x80000004
+    slti    t7, t8, 9			## 1 if t1 < 10 (600 RPM)
+    bnez    t7, mainloopend		## skip if < 10 clicks
     nop
     //set LED (GREEN)
     li	    t1, _PORTB_RB12_MASK	##green
@@ -142,7 +141,7 @@ mainloop:
     
     donechecking:
     
-    li t6, 0x00060000		   ##loop counter value
+    li t6, 0xF000		   ##loop counter value
     //delay loop
     delay:
     beqz t6, contmainloop
