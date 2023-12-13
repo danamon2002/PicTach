@@ -1,8 +1,7 @@
 ## EECE.3170: Microprocessors I
 ## UMass Lowell
-## Author: M. Geiger
-## intTest1.S: in-class example to demonstrate PIC interrupt basics
-##     Basically same as timerTest.S but using timer interrupts
+## Author: Dana Maloney
+## Based on Example code by Professor M. Geiger
     
 // Including xc.h allows use of SFR names, bit masks, etc.
 #include <xc.h>
@@ -55,8 +54,8 @@ main:
     // Configure Timer 1
     sw	    zero, T1CON		    ## Clear T1CON--disables timer to allow setup
     
-    ori	    t1, zero, 31250	    ## Set t1 = 0xFFFF = initial PR1 value
-    sw	    t1, PR1		    ##   (maximum possible clock period--65,535 cycles)
+    ori	    t1, zero, 31250	    ## Set t1 = initial PR1 value
+    sw	    t1, PR1		    ## Currently set to 0.5 sec
     
     li	    t2, _IFS0_T1IF_MASK	    ## t2 = bit mask for checking Timer 1 interrupt flag
     
