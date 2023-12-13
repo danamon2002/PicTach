@@ -33,6 +33,9 @@ __vector_dispatch_11:
     .end __vector_dispatch_11
     .size __vector_dispatch_11, .-__vector_dispatch_11
     
+    // Start of data section
+    .data
+    countaddress: .word 
     // Start of text section       
     .text		## Text section contains code
     .set noreorder	## Disable instruction reordering
@@ -97,36 +100,61 @@ main:
     
     //Initialize address for tracking input state changes per period
     li	    t0, 0		    
-    sw	    t0, __KSEG0_DATA_MEM_BASE		    ##use s0 to track ticks per cycle
+    sw	    t0, 0x80000000
   
     // Main loop for outside of interrupts
 mainloop:
     
-    lw	    t1, __KSEG0_DATA_MEM_BASE	## Load counter value
-    slti    t1, t1, 3			## 1 if t1 < 4
-    bnez    t1, mainloopend		## skip if <4 clicks
+    //fast check
+    lw	    t9, 0x80000000	## Load counter value
+    move    t8, t9
+    slti    t7, t8, 50			## 1 if t1 < 50 (50 * 2 * 60 = 6K RPM)
+    bnez    t7, medspeed		## skip if < 50 clicks
     nop
+    //set LED (RED)
+    li	    t1, _PORTA_RA3_MASK		##red
+    sw	    t1, LATASET
+    j donechecking
+    nop
+    //medium speed check
+    medspeed:
+    move    t8, t9
+    slti    t7, t8, 25			## 1 if t1 < 25 (3K RPM)
+    bnez    t7, mainloopend		## skip if < 25 clicks
+    nop
+    //set LED (YELLOW)
+    li	    t1, _PORTB_RB12_MASK	##green
+    sw	    t1, LATBSET
+    li	    t1, _PORTA_RA3_MASK		##red
+    sw	    t1, LATASET
+    j donechecking
+    nop
+    lowspeed:
+    move    t8, t9
+    slti    t7, t8, 4			## 1 if t1 < 4 (480 RPM)
+    bnez    t7, mainloopend		## skip if < 4 clicks
+    nop
+    //set LED (GREEN)
+    li	    t1, _PORTB_RB12_MASK	##green
+    sw	    t1, LATBSET
     
-    //set LED
-    li	    t1, _PORTA_RA2_MASK
-    sw	    t1, PORTASET
+    donechecking:
     
-    li t8, 0x61A8		   ##loop counter value
+    li t5, 0x00060000		   ##loop counter value
     //delay loop
     delay:
-    beqz t8, contmainloop
+    beqz t5, contmainloop
     nop
-    addi t8, t8, -1
+    addi t5, t5, -1
     j delay
     
     contmainloop:
    
     //	Reset Tach LED
-    lw	    t0, PORTA		    ##load current state of port A
-    li	    t1, _PORTA_RA2_MASK
-    //not	    t1, t1		    ##t1 is inverse of ra2 mask
-    //and	    t0, t0, t1		    ##keep all bits the same but turn off ra2
-    sw	    t1 , PORTACLR	    ##set port
+    li	    t1, _PORTA_RA3_MASK
+    sw	    t1 , LATACLR	    ##set port
+    li	    t1, _PORTB_RB12_MASK
+    sw	    t1 , LATBCLR	    ##set port
     
     
 mainloopend:
@@ -139,23 +167,19 @@ mainloopend:
     // Handle Timer1 interrupt--clear interrupt flag and toggle LED
     .global isrvector11
     .ent isrvector11
-isrvector11:
+isrvector11:			    ## TIMER INTERRUPT
     li	    t2, _IFS0_T1IF_MASK    
     sw	    t2, IFS0CLR		    ## Clear T1IF in software!
-    
-    // Toggle LED(s) to indicate timer completion
-    li	    t0, _PORTA_RA3_MASK	 
-    sw	    t0, LATAINV		    ## Flip LED1
-    
-    
+       
 endvec11:
     
     //	Reset counter
     li	    t0, 0
-    sw	    t0, __KSEG0_DATA_MEM_BASE
+    sw	    t0, 0x80000000
     
     //reset tach LED code once went here
-    
+    ///li	    t6, _PORTA_RA2_MASK		##set blue LED
+    //sw	    t6, LATAINV
     
     eret		    ## Return from interrupt
     .end isrvector11
@@ -166,21 +190,21 @@ endvec11:
     .global isrvector9
     .ent isrvector9
 isrvector9:			    ##BUTTON INTERRUPT  
-    
+    //clear flag
+    li	    t0, _IFS0_CNBIF_MASK    ## Clear Port B change notification flag
+    sw	    t0, IFS0CLR		    ##    in IFS0
     li	    t0, _PORTB_RB7_MASK	    ## t4 = 0x00000080 --> mask for S1
-    sw	    t0, CNFBCLR		    ## Clear flag for S1
+    sw	    t0, CNFBCLR		    ## Clear flag input state change
 
-    //code to indicate input received
+    //debug code to show input change
     li	    t0, _PORTA_RA0_MASK	    ## Toggle input indicator LED
     sw	    t0, LATAINV 
     
     //code to up tick counter
-    lw	    t1, __KSEG0_DATA_MEM_BASE		    ## load counter value
+    lw	    t1, 0x80000000		    ## load counter value
     addi    t1, 1		    ## add 1 to it
-    sw	    t1, __KSEG0_DATA_MEM_BASE		    ## save it back to s0
+    sw	    t1, 0x80000000		    ## save it back to s0
     
-    //clear flag
-    li	    t0, _IFS0_CNBIF_MASK    ## Clear Port B change notification flag
-    sw	    t0, IFS0CLR		    ##    in IFS0
+    
     eret		    ## Return from interrupt
     .end isrvector9
